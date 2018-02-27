@@ -1,22 +1,24 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"minievm/common"
-	"minievm/core/vm/runtime"
+	"minievm/core"
+	st "minievm/core/state"
+	"minievm/core/vm"
+	"minievm/params"
 )
 
-/*
 func main() {
-	db, _ := ethdb.NewMemDatabase()
-	state, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	state := st.New()
 
 	addr := common.BytesToAddress([]byte("test1"))
 	state.AddBalance(addr, big.NewInt(int64(100)))
 	state.SetNonce(addr, uint64(20))
 	code, _ := hex.DecodeString("60606040526001600060005055604c8060186000396000f360606040526000357c010000000000000000000000000000000000000000000000000000000090048063f8a8fd6d146039576035565b6002565b604460048050506046565b005b604a565b56")
 	state.SetCode(addr, code)
-	state.IntermediateRoot(false)
 	fmt.Printf("code: %x\n", state.GetCode(addr))
 	to := common.BytesToAddress([]byte("test2"))
 
@@ -32,13 +34,16 @@ func main() {
 	ret, err := vm.Run(evm, contract, input)
 	fmt.Printf("ret: %x\nerr: %v\n\n", ret, err)
 
-	fmt.Printf("StateDB:\n balance: %v\n", evm.StateDB.GetBalance(addr))
-	fmt.Printf(" code: %x\n", evm.StateDB.GetCode(addr))
+	fmt.Printf("statedb: \n")
+	for _, s := range state.StateMap {
+		fmt.Printf("%s\n", s)
+	}
 	return
 }
-*/
 
+/*
 func main() {
 	ret, _, err := runtime.Execute(common.Hex2Bytes("60606040526001600060005055604c8060186000396000f360606040526000357c010000000000000000000000000000000000000000000000000000000090048063f8a8fd6d146039576035565b6002565b604460048050506046565b005b604a565b56"), nil, nil)
 	fmt.Printf("ret: %x\nerr: %v\n\n", ret, err)
 }
+*/
