@@ -179,6 +179,8 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		if err := in.enforceRestrictions(op, operation, stack); err != nil {
 			return nil, err
 		}
+		fmt.Printf("-------op: %s-------\n", opCodeToString[op])
+		stack.Print()
 
 		var memorySize uint64
 		// calculate the new memory size and expand the memory to fit

@@ -44,6 +44,13 @@ func (st State) String() string {
 	return strings.Join(lines, "\n")
 }
 
+func (st *StateDB) Print() {
+	fmt.Printf("\nstatedb:\n")
+	for _, s := range st.StateMap {
+		fmt.Printf("%s\n", s)
+	}
+}
+
 func (st *StateDB) CreateAccount(addr common.Address) {
 	st.StateMap[addr] = &State{addr, big.NewInt(0), 0, common.Hash{}, nil, false, map[common.Hash]common.Hash{}}
 	return

@@ -781,7 +781,7 @@ func makePush(size uint64, pushByteSize int) executionFunc {
 
 		integer := evm.interpreter.intPool.get()
 		stack.push(integer.SetBytes(common.RightPadBytes(contract.Code[startMin:endMin], pushByteSize)))
-
+		//fmt.Printf("Debug: startMin = %d, endMin = %d, contract.Code[startMin:endMin] = %v\n", startMin, endMin, contract.Code[startMin:endMin])
 		*pc += size
 		return nil, nil
 	}
