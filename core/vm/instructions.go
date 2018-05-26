@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"minievm/common"
 	"minievm/common/math"
@@ -38,35 +39,64 @@ var (
 
 func opAdd(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	x, y := stack.pop(), stack.pop()
-	stack.push(math.U256(x.Add(x, y)))
+	result := x.Add(x, y)
+	var resultOrig big.Int
+	resultOrig.Set(result)
+	resultMod := math.U256(result)
+	stack.push(resultMod)
 
 	evm.interpreter.intPool.put(y)
-
+	if resultOrig.Cmp(resultMod) != 0 {
+		key := "Overflow detected: Add @" + strconv.FormatInt(int64(*pc), 16)
+		evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.HexToHash("nyanpass"))
+	}
 	return nil, nil
 }
 
 func opSub(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	x, y := stack.pop(), stack.pop()
-	stack.push(math.U256(x.Sub(x, y)))
+	result := x.Sub(x, y)
+	var resultOrig big.Int
+	resultOrig.Set(result)
+	resultMod := math.U256(result)
+	stack.push(resultMod)
 
 	evm.interpreter.intPool.put(y)
-
+	if resultOrig.Cmp(resultMod) != 0 {
+		key := "Nyanpass. Overflow detected: Sub"
+		evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.BigToHash(big.NewInt(int64(*pc))))
+	}
 	return nil, nil
 }
 
 func opMul(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	x, y := stack.pop(), stack.pop()
-	stack.push(math.U256(x.Mul(x, y)))
+	result := x.Mul(x, y)
+	var resultOrig big.Int
+	resultOrig.Set(result)
+	resultMod := math.U256(result)
+	stack.push(resultMod)
 
 	evm.interpreter.intPool.put(y)
-
+	if resultOrig.Cmp(resultMod) != 0 {
+		key := "Nyanpass. Overflow detected: Mul"
+		evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.BigToHash(big.NewInt(int64(*pc))))
+	}
 	return nil, nil
 }
 
 func opDiv(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	x, y := stack.pop(), stack.pop()
 	if y.Sign() != 0 {
-		stack.push(math.U256(x.Div(x, y)))
+		result := x.Div(x, y)
+		var resultOrig big.Int
+		resultOrig.Set(result)
+		resultMod := math.U256(result)
+		if resultOrig.Cmp(resultMod) != 0 {
+			key := "Nyanpass. Overflow detected: Div"
+			evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.BigToHash(big.NewInt(int64(*pc))))
+		}
+		stack.push(resultMod)
 	} else {
 		stack.push(new(big.Int))
 	}
@@ -524,6 +554,7 @@ func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 
 func opJump(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	pos := stack.pop()
+	// log.Printf("opJump at %d\n", *pc)
 	if !contract.jumpdests.has(contract.CodeHash, contract.Code, pos) {
 		nop := contract.GetOp(pos.Uint64())
 		return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)

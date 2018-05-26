@@ -59,6 +59,10 @@ func (bits *bitvec) set8(pos uint64) {
 
 // codeSegment checks if the position is in a code segment.
 func (bits *bitvec) codeSegment(pos uint64) bool {
+	// log.Printf("codeSeg %02x, %02x\n", pos, (*bits))
+	if (pos / 8) > uint64(len(*bits)) {
+		return false
+	}
 	return ((*bits)[pos/8] & (0x80 >> (pos % 8))) == 0
 }
 

@@ -15,7 +15,7 @@ type StateDB struct {
 type State struct {
 	address   common.Address
 	balance   *big.Int
-	nounce    uint64
+	nonce     uint64
 	codeHash  common.Hash
 	code      []byte
 	isSuicide bool
@@ -32,9 +32,9 @@ func (st State) String() string {
 	lines = append(lines, fmt.Sprintf("--- State %x:", st.address))
 
 	lines = append(lines, fmt.Sprintf("     balance: %d:", st.balance.Int64()))
-	lines = append(lines, fmt.Sprintf("     nounce: %d", st.nounce))
+	lines = append(lines, fmt.Sprintf("     nonce: %d", st.nonce))
 	lines = append(lines, fmt.Sprintf("     codeHash: %x", st.codeHash))
-	lines = append(lines, fmt.Sprintf("     code: %x", st.code))
+	// lines = append(lines, fmt.Sprintf("     code: %x", st.code))
 	lines = append(lines, fmt.Sprintf("     isSuicide: %v", st.isSuicide))
 	lines = append(lines, fmt.Sprintf("     storage:"))
 	for k, v := range st.storage {
@@ -71,6 +71,7 @@ func (st *StateDB) AddBalance(addr common.Address, value *big.Int) {
 	return
 }
 func (st *StateDB) GetBalance(addr common.Address) *big.Int {
+	st.AddBalance(addr, big.NewInt(int64(100)))
 	if _, ok := st.StateMap[addr]; !ok {
 		return nil
 	}
@@ -81,13 +82,13 @@ func (st *StateDB) GetNonce(addr common.Address) uint64 {
 	if _, ok := st.StateMap[addr]; !ok {
 		return 0
 	}
-	return st.StateMap[addr].nounce
+	return st.StateMap[addr].nonce
 }
 func (st *StateDB) SetNonce(addr common.Address, value uint64) {
 	if _, ok := st.StateMap[addr]; !ok {
 		st.StateMap[addr] = &State{addr, big.NewInt(0), 0, common.Hash{}, nil, false, map[common.Hash]common.Hash{}}
 	}
-	st.StateMap[addr].nounce = value
+	st.StateMap[addr].nonce = value
 	return
 }
 
