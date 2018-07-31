@@ -1,6 +1,7 @@
 package detectors
 
 import (
+	"bytes"
 	"log"
 	"math/big"
 	"minievm/accounts/abi"
@@ -19,12 +20,13 @@ import (
 	If EVM doesn't revert and the sotrage is tainted by us, we may found an integer overflow bug.
 */
 type OverFlowDetector struct {
-	owner, attacker, contractaddress, otherone common.Address
+	Owner, Attacker, ContractAddress, OtherOne common.Address
+	contractName                               string
 	victims                                    [10]common.Address
 	state                                      *state.StateDB
 	context                                    *vm.Context
 	evm                                        *vm.EVM
-	abi                                        abi.ABI
+	ABI                                        abi.ABI
 	Executionresult                            error
 	Detected                                   bool
 	Reason                                     string
@@ -34,12 +36,12 @@ type OverFlowDetector struct {
 
 //InitExternalAccount init new accounts
 func (ofd *OverFlowDetector) InitExternalAccount() {
-	ofd.attacker = common.BytesToAddress([]byte("Attacker"))
-	ofd.owner = common.BytesToAddress([]byte("Owner"))
-	ofd.state.AddBalance(ofd.attacker, big.NewInt(int64(100)))
-	ofd.state.AddBalance(ofd.owner, big.NewInt(int64(100)))
-	ofd.state.SetNonce(ofd.attacker, uint64(20))
-	ofd.state.SetNonce(ofd.owner, uint64(20))
+	ofd.Attacker = common.BytesToAddress([]byte("Attacker"))
+	ofd.Owner = common.BytesToAddress([]byte("Owner"))
+	ofd.state.AddBalance(ofd.Attacker, big.NewInt(int64(100)))
+	ofd.state.AddBalance(ofd.Owner, big.NewInt(int64(100)))
+	ofd.state.SetNonce(ofd.Attacker, uint64(20))
+	ofd.state.SetNonce(ofd.Owner, uint64(20))
 	for i := 0; i < 10; i++ {
 		addr := common.BytesToAddress([]byte("testaddress" + strconv.Itoa(i)))
 		ofd.victims[i] = addr
@@ -47,14 +49,19 @@ func (ofd *OverFlowDetector) InitExternalAccount() {
 	}
 }
 
-func (ofd *OverFlowDetector) Init(abijson string) {
+func (ofd *OverFlowDetector) Init(contractName, abijson string) {
+	contractNameSlice := strings.Split(contractName, "/")
+	ofd.contractName = contractNameSlice[len(contractNameSlice)-1]
+
+	log.SetPrefix(ofd.contractName + " ")
 	ofd.state = state.New()
 	ofd.InitExternalAccount()
 	abi, err := abi.JSON(strings.NewReader(abijson))
 	if err != nil {
-		log.Panic("ABI decode error", err)
+		log.Print("ABI decode error", err)
+		return
 	}
-	ofd.abi = abi
+	ofd.ABI = abi
 
 	ofd.context = &vm.Context{
 		Transfer:    core.Transfer,
@@ -65,7 +72,8 @@ func (ofd *OverFlowDetector) Init(abijson string) {
 		GasPrice:    big.NewInt(100),
 		Difficulty:  big.NewInt(100),
 	}
-	ofd.evm = vm.NewEVM(*ofd.context, ofd.state, params.MainnetChainConfig, vm.Config{EnableJit: false, ForceJit: false})
+	ofd.evm = vm.NewEVM(*ofd.context, ofd.state, params.MainnetChainConfig, vm.Config{EnableJit: false, ForceJit: false, Debug: false})
+	ofd.evm.Callback = NULLCallback
 }
 
 // CreateContract creates a new contract
@@ -74,8 +82,20 @@ func (ofd *OverFlowDetector) CreateContract(addr common.Address, code []byte, va
 	if err != nil {
 		return
 	}
-	ofd.contractaddress = caddr
+	ofd.ContractAddress = caddr
 	return
+}
+
+func (ofd *OverFlowDetector) SetCallback(cb vm.CallbackFunc) {
+	ofd.evm.Callback = cb
+}
+
+func (ofd *OverFlowDetector) GetState(key common.Hash) common.Hash {
+	return ofd.state.GetState(ofd.ContractAddress, key)
+}
+
+func (ofd *OverFlowDetector) SetState(key, hash common.Hash) {
+	ofd.state.SetState(ofd.ContractAddress, key, hash)
 }
 
 // FunctionCall call from addr to contract
@@ -85,56 +105,73 @@ func (ofd *OverFlowDetector) FunctionCall(from common.Address, to common.Address
 	return
 }
 
-// ERC20GetAccountInfo gets account info such as totalSupply, balanceOf...
-func (ofd *OverFlowDetector) ERC20GetAccountInfo(instruction string, args ...interface{}) *big.Int {
-	packed, err := ofd.abi.Pack(instruction)
+func (ofd *OverFlowDetector) CallFunctionStub(stubname string) (ret []byte, err error) {
+	packed, err := ofd.ABI.Pack(stubname)
 	if err != nil {
-		log.Panic("Pack error:", err)
+		return nil, err
 	}
-	ret, err := ofd.FunctionCall(ofd.owner, ofd.contractaddress, packed, big.NewInt(0))
+	ret, err = ofd.FunctionCall(ofd.Owner, ofd.ContractAddress, packed, big.NewInt(0))
+	return
+}
+
+// ERC20GetAccountInfo gets account info such as totalSupply, balanceOf...
+func (ofd *OverFlowDetector) ERC20GetAccountInfo(instruction string, args ...interface{}) (*big.Int, error) {
+	packed, err := ofd.ABI.Pack(instruction)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := ofd.FunctionCall(ofd.Owner, ofd.ContractAddress, packed, big.NewInt(0))
 	res := new(big.Int)
 	res.SetBytes(ret)
-	return res
+	return res, err
 }
 
 // ERC20Transfer the caller do a transfer to receiver
 func (ofd *OverFlowDetector) ERC20Transfer(caller, receiver common.Address, amount *big.Int) {
-	packed, err := ofd.abi.Pack("transfer", receiver, amount)
+	packed, err := ofd.ABI.Pack("transfer", receiver, amount)
 	if err != nil {
-		log.Panic("Pack error:", err)
+		return
+		log.Println("Pack error:", err)
 	}
-	_, err = ofd.FunctionCall(caller, ofd.contractaddress, packed, big.NewInt(0))
+	_, err = ofd.FunctionCall(caller, ofd.ContractAddress, packed, big.NewInt(0))
 	if err != nil {
-		log.Panic("FunctionCall error:", err)
+		return
+		// log.Println("FunctionCall error:", err)
 	}
 }
 
 // InitAttackerToken gives some token away
 func (ofd *OverFlowDetector) InitAttackerToken() {
-	totalSupply := ofd.ERC20GetAccountInfo("totalSupply")
-	ofd.ERC20Transfer(ofd.owner, ofd.attacker, new(big.Int).Div(totalSupply, big.NewInt(10000)))
+	totalSupply, err := ofd.ERC20GetAccountInfo("totalSupply")
+	if err != nil {
+		// log.Println("not support totalSupply")
+		return
+	}
+	ofd.ERC20Transfer(ofd.Owner, ofd.Attacker, new(big.Int).Div(totalSupply, big.NewInt(10000)))
 }
 
 // InitVictimsToken gives tokens to victims
 func (ofd *OverFlowDetector) InitVictimsToken() {
-	totalSupply := ofd.ERC20GetAccountInfo("totalSupply")
-
-	// log.Println("Transfer 0.01% of totalSupply from owner to Victim")
+	totalSupply, err := ofd.ERC20GetAccountInfo("totalSupply")
+	if err != nil {
+		// log.Println("not support totalSupply")
+		return
+	}
 	for i := 0; i < 10; i++ {
-		ofd.ERC20Transfer(ofd.owner, ofd.victims[i], new(big.Int).Div(totalSupply, big.NewInt(10000)))
+		ofd.ERC20Transfer(ofd.Owner, ofd.victims[i], new(big.Int).Div(totalSupply, big.NewInt(10000)))
 	}
 }
 
 //OverFlowDetector detectes the integer overflow
-func (ofd *OverFlowDetector) OverFlowDetector(codeHex string, function string) {
+func (ofd *OverFlowDetector) OverFlowDetector(codeHex, function string, initAttacker, initVictims bool) {
 	ofd.Detected = false
 	ofd.Reason = ""
 	ofd.Attackvector = nil
 	ofd.Unpackedinput = nil
 
-	ops := []string{add, sub, mul, div}
+	// ops := []string{add, sub, mul, div}
 	code := common.Hex2Bytes(codeHex)
-	err := ofd.CreateContract(ofd.owner, code, big.NewInt(0))
+	err := ofd.CreateContract(ofd.Owner, code, big.NewInt(0))
 	if err != nil {
 		ofd.Detected = false
 		return
@@ -144,10 +181,17 @@ func (ofd *OverFlowDetector) OverFlowDetector(codeHex string, function string) {
 		return
 	}
 
-	ofd.InitAttackerToken()
-	ofd.InitVictimsToken()
+	if initAttacker {
+		ofd.InitAttackerToken()
+	}
+	if initVictims {
+		ofd.InitVictimsToken()
+	}
 
-	c, _, _ := GenerateInputsByABI(ofd.abi, function)
+	c, _, _ := GenerateInputsByABI(ofd.ABI, function)
+	if c == nil {
+		return
+	}
 	// bar := pb.StartNew(total)
 
 	// log.Println("Types:", types, "Total:", total)
@@ -155,28 +199,52 @@ func (ofd *OverFlowDetector) OverFlowDetector(codeHex string, function string) {
 	for product := range c {
 		// fmt.Println(product)
 		// bar.Increment()
-		packed, err := ofd.abi.Pack(function, product...)
+		packed, err := ofd.ABI.Pack(function, product...)
 		if err != nil {
 			log.Println("Pack error:", err)
 			continue
 		}
-		ret, err := ofd.FunctionCall(ofd.attacker, ofd.contractaddress, packed, big.NewInt(0))
+		_, err = ofd.FunctionCall(ofd.Attacker, ofd.ContractAddress, packed, big.NewInt(0))
 		// log.Print("ret", ret, (new(big.Int).SetBytes(ret).Cmp(big.NewInt(1)) == 0))
 		if err == nil {
-			for _, op := range ops {
-				res := ofd.state.GetState(ofd.contractaddress, common.StringToHash(op))
-				emptyHash := common.Hash{}
-				if res != emptyHash && (new(big.Int).SetBytes(ret).Cmp(big.NewInt(1)) == 0) {
-					// log.Printf("Attack Vector: %02x\nUnpacked Input: %02x", packed, product)
-					// log.Println(op[10:], "@PC =", res.Big())
-					// log.Println()
-					ofd.Detected = true
-					ofd.Reason = op[10:] + " @PC = " + res.Big().String()
-					ofd.Attackvector = packed
-					ofd.Unpackedinput = product
-					// return
+			// for _, op := range ops {
+			// 	res := ofd.state.GetState(ofd.ContractAddress, common.StringToHash(op))
+			// 	emptyHash := common.Hash{}
+			// 	if res != emptyHash && (new(big.Int).SetBytes(ret).Cmp(big.NewInt(1)) == 0) {
+			// 		// log.Printf("Attack Vector: %02x\nUnpacked Input: %02x", packed, product)
+			// 		// log.Println(op[10:], "@PC =", res.Big())
+			// 		// log.Println()
+			// 		ofd.Detected = true
+			// 		ofd.Reason = op[10:] + " @PC = " + res.Big().String()
+			// 		ofd.Attackvector = packed
+			// 		ofd.Unpackedinput = product
+			// 		// return
+			// 	}
+			// }
+			// ret, err = ofd.CallFunctionStub("stub_overflowdetection")
+			foundOverflow := false
+			overflowTopic := common.Hex2Bytes("FEE46111846A282E8199035721DD0334C2BC5C016AE4E72B924003431D6A8759")
+			for _, logentry := range ofd.state.Logs {
+				logbytes := logentry.Topics[0].Bytes()
+				if bytes.Equal(overflowTopic, logbytes) {
+					foundOverflow = true
 				}
+
+				// if reflect.DeepEqual(logentry.Topics[0], common.StringToHash("FEE46111846A282E8199035721DD0334C2BC5C016AE4E72B924003431D6A8759")) {
+				// 	foundOverflow = true
+				// }
 			}
+			// if err != nil {
+			// 	return
+			// }
+			// stubRet := new(big.Int).SetBytes(ret)
+			// if stubRet.Cmp(big.NewInt(1)) == 0 {
+			if foundOverflow {
+				ofd.Attackvector = packed
+				ofd.Detected = true
+				ofd.Unpackedinput = product
+			}
+
 		}
 	}
 }

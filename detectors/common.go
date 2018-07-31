@@ -1,10 +1,13 @@
 package detectors
 
 import (
+	"encoding/json"
 	"math/big"
 	"minievm/accounts/abi"
 	"minievm/common"
+	"os/exec"
 	"reflect"
+	"runtime"
 	"strconv"
 
 	cartesian "github.com/schwarmco/go-cartesian-product"
@@ -17,6 +20,47 @@ const (
 	mul       = keyPrefix + "Mul"
 	div       = keyPrefix + "Div"
 )
+
+type Contract struct {
+	Abi string `json:"abi"`
+	Bin string `json:"bin"`
+}
+type SolcOutput struct {
+	Contracts map[string]Contract `json:"contracts"`
+	Version   string              `json:"version"`
+}
+
+func StringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+func CompileContract(filepath string) (*SolcOutput, error) {
+	cmd := "/Users/dynm/Documents/GithubProjects/solidity/build/solc/solc"
+	solcArgs := []string{"--combined-json=bin,abi"}
+	task := exec.Command(cmd, append(solcArgs, filepath)...)
+	output, err := task.Output()
+	if err != nil {
+		return &SolcOutput{}, err
+
+	}
+	var solcOutput SolcOutput
+	json.Unmarshal(output, &solcOutput)
+	return &solcOutput, nil
+}
+
+func GetCallerName(skip int) string {
+	pc, _, _, ok := runtime.Caller(skip)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		return details.Name()
+	}
+	return ""
+}
 
 func GenerateIntBySize(size int) (res []*big.Int) {
 	value := new(big.Int)
@@ -100,8 +144,13 @@ func GenerateInputsByABI(abi abi.ABI, function string) (c chan []interface{}, ty
 	// HashTy
 	// FixedPointTy
 	// FunctionTy
+	// log.Println(abi.Methods[function].Name, function)
+	if (abi.Methods[function].Name) != function {
+		c = nil
+		total = 0
+		return
+	}
 	for _, x := range abi.Methods[function].Inputs {
-		// log.Printf("%s, %d\n", x.Type, x.Type.Size)
 		types = append(types, x.Type.Type)
 		switch x.Type.T {
 		case SliceTy:
@@ -148,9 +197,10 @@ func GenerateInputsByABI(abi abi.ABI, function string) (c chan []interface{}, ty
 				d = append(d, s)
 				total *= len(s)
 			}
+		default:
+			break
 		}
 	}
 	c = cartesian.Iter(d...)
 	return
-
 }

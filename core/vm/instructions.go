@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"minievm/common"
 	"minievm/common/math"
@@ -47,8 +46,8 @@ func opAdd(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stac
 
 	evm.interpreter.intPool.put(y)
 	if resultOrig.Cmp(resultMod) != 0 {
-		key := "Overflow detected: Add @" + strconv.FormatInt(int64(*pc), 16)
-		evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.HexToHash("nyanpass"))
+		key := "Nyanpass. Overflow detected: Add"
+		evm.StateDB.SetState(contract.Address(), common.StringToHash(key), common.BigToHash(big.NewInt(int64(*pc))))
 	}
 	return nil, nil
 }
@@ -540,6 +539,10 @@ func opSload(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *St
 	loc := common.BigToHash(stack.pop())
 	val := evm.StateDB.GetState(contract.Address(), loc).Big()
 	stack.push(val)
+	locval := make([]interface{}, 2)
+	locval[0] = loc
+	locval[1] = val
+	evm.Callback(locval)
 	return nil, nil
 }
 
@@ -547,8 +550,11 @@ func opSstore(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *S
 	loc := common.BigToHash(stack.pop())
 	val := stack.pop()
 	evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
-
 	evm.interpreter.intPool.put(val)
+	locval := make([]interface{}, 2)
+	locval[0] = loc
+	locval[1] = val
+	evm.Callback(locval)
 	return nil, nil
 }
 

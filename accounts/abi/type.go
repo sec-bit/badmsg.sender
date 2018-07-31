@@ -17,11 +17,15 @@
 package abi
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/google/gofuzz"
 )
 
 // Type enumerator
@@ -168,6 +172,34 @@ func NewType(t string) (typ Type, err error) {
 // String implements Stringer
 func (t Type) String() (out string) {
 	return t.stringKind
+}
+
+func (t Type) fuzz(fuzzer *fuzz.Fuzzer) ([]byte, error) {
+
+	if t.T == SliceTy || t.T == ArrayTy {
+		var fuzzed []byte
+		// var slicelen int
+		// fuzzer.Fuzz(&slicelen)
+		n, _ := rand.Int(rand.Reader, big.NewInt(16))
+		slicelen := n.Int64()
+		for i := 0; i < int(slicelen); i++ {
+			val, err := t.Elem.fuzz(fuzzer)
+			// log.Printf("array[%d], %02x", i, val)
+			if err != nil {
+				return nil, err
+			}
+			fuzzed = append(fuzzed, val...)
+			// log.Printf("fuzzed after append %02x", fuzzed)
+		}
+		if t.T == SliceTy {
+			// log.Print("t.T == SliceTy")
+			return packFuzzedBytesSlice(fuzzed, fuzzer), nil
+		} else if t.T == ArrayTy {
+			// log.Print("t.T == ArrayTy")
+			return fuzzed, nil
+		}
+	}
+	return fuzzElement(t, fuzzer), nil
 }
 
 func (t Type) pack(v reflect.Value) ([]byte, error) {

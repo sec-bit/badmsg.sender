@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	"minievm/crypto"
+
+	fuzz "github.com/google/gofuzz"
 )
 
 // Method represents a callable given a `Name` and whether the method is a constant.
@@ -76,4 +78,12 @@ func (method Method) String() string {
 
 func (method Method) Id() []byte {
 	return crypto.Keccak256([]byte(method.Sig()))[:4]
+}
+
+func (method Method) Fuzz(fuzzer *fuzz.Fuzzer) ([]byte, error) {
+	inputs, err := method.Inputs.Fuzz(fuzzer)
+	if err != nil {
+		return []byte{}, err
+	}
+	return append(method.Id(), inputs...), nil
 }

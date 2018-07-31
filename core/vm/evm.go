@@ -96,6 +96,9 @@ type Context struct {
 // specific errors should ever be performed. The interpreter makes
 // sure that any errors generated are to be considered faulty code.
 //
+
+type CallbackFunc func(args []interface{})
+
 // The EVM should never be reused and is not thread safe.
 type EVM struct {
 	// Context provides auxiliary blockchain related information
@@ -122,6 +125,8 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+
+	Callback CallbackFunc
 }
 
 // NewEVM retutrns a new EVM . The returned EVM is not thread safe and should
@@ -133,6 +138,7 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		vmConfig:    vmConfig,
 		chainConfig: chainConfig,
 		chainRules:  chainConfig.Rules(ctx.BlockNumber),
+		Callback:    func(args []interface{}) {},
 	}
 
 	evm.interpreter = NewInterpreter(evm, vmConfig)

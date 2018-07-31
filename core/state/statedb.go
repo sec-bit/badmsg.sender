@@ -10,6 +10,7 @@ import (
 
 type StateDB struct {
 	StateMap map[common.Address]*State
+	Logs     []*types.Log
 }
 
 type State struct {
@@ -23,7 +24,7 @@ type State struct {
 }
 
 func New() *StateDB {
-	return &StateDB{map[common.Address]*State{}}
+	return &StateDB{map[common.Address]*State{}, []*types.Log{}}
 }
 
 func (st State) String() string {
@@ -42,6 +43,10 @@ func (st State) String() string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func (st *State) Backup() {
+
 }
 
 func (st *StateDB) Print() {
@@ -172,7 +177,8 @@ func (st *StateDB) Snapshot() int {
 	return 0
 }
 
-func (st *StateDB) AddLog(*types.Log) {
+func (st *StateDB) AddLog(eventLog *types.Log) {
+	st.Logs = append(st.Logs, eventLog)
 	return
 }
 func (st *StateDB) AddPreimage(common.Hash, []byte) {
@@ -181,4 +187,8 @@ func (st *StateDB) AddPreimage(common.Hash, []byte) {
 
 func (st *StateDB) ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) {
 	return
+}
+
+func (st *StateDB) Backup() {
+
 }
