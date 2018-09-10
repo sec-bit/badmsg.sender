@@ -2,3 +2,4 @@ minichain.exe
 minievm.exe
 govendor.exe
 .vscode
+.fuzz_log

@@ -9,10 +9,8 @@ import (
 )
 
 func TestFuzzContracts(t *testing.T) {
-	// path := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol"
-	// path := "/Users/dynm/Documents/zeroklabs/ContractsDB/etherscan/0xc5d105e63711398af9bbff092d4b6769c82f793d.sol"
-	path := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/t_BEC.sol"
-	logpath := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/fuzz_log"
+	path := "~/Documents/zeroklabs/gopath/src/minievm/erc20contracts/t_BEC.sol"
+	logpath := "~/Documents/zeroklabs/gopath/src/minievm/fuzz_log"
 	cf := NewContractFuzzer(path, logpath, true)
 	cf.FuzzContracts()
 }
@@ -28,8 +26,8 @@ func checkEvent(fi *FuzzInt) bool {
 	return false
 }
 func TestSingleCall(t *testing.T) {
-	path := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol"
-	logpath := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/fuzz_log"
+	path := "~/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol"
+	logpath := "~/Documents/zeroklabs/gopath/src/minievm/fuzz_log"
 	fi := NewContractFuzzer(path, logpath, false)
 	n := new(big.Int)
 	n.Exp(big.NewInt(2), big.NewInt(255), nil)

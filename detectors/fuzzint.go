@@ -70,10 +70,10 @@ func (fi *FuzzInt) FuzzStorage() {
 	}
 }
 
-func NewContractFuzzer(contractpath string, logpath string, enableUI bool) *FuzzInt {
+func NewContractFuzzer(solcpath, contractpath, logpath string, enableUI bool) *FuzzInt {
 	fi := &FuzzInt{path: contractpath}
 	fi.fuzzer = fuzz.New()
-	fi.contracts = NewContract(fi.path)
+	fi.contracts = NewContract(solcpath, fi.path)
 	fi.maincontract = &fi.contracts.MainContract
 	fi.constantsLoc = fi.contracts.GetStorageLoc()
 	fi.enableUI = enableUI
@@ -252,12 +252,17 @@ func (fi *FuzzInt) FuzzContracts() {
 					ui.Render(g)
 				}
 				calldata, _ := method.Fuzz(fi.fuzzer)
+
 				fi.contracts.BackupStates()
 				_, err := fi.maincontract.Call(fi.contracts.ContractCreater, calldata)
+				// PrintMemUsage()
+				// log.Printf("Call Func: %s with %02x\n", method.Name, calldata)
 				calldataLable.Text = common.ToHex(calldata)
-				// eventExist := fi.CheckEvent()
+				// eventExist := fi.CheckEvent() // require src transformer
 				eventExist := false
 				overflowStateExist := fi.CheckOverflowStorage()
+				fi.contracts.RestoreStates()
+
 				if err == nil {
 					if eventExist {
 						evmLable.Text = "Non-revert Detected\n" + calldataLable.Text + "\n"
@@ -289,7 +294,7 @@ func (fi *FuzzInt) FuzzContracts() {
 						ui.Render(p, table, gTotal, calldataLable)
 					}
 				}
-				fi.contracts.RestoreStates()
+
 				if attackVectorCnt > 5 {
 					w.Flush()
 					break methodFuzz

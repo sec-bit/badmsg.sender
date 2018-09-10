@@ -12,7 +12,7 @@ import (
 
 func TestGetStorageLoc(t *testing.T) {
 	su := &ContractUtils{}
-	su.DeployContracts("/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol")
+	su.DeployContracts("~/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol")
 	su.SetSkippedVars([]string{})
 	for name, loc := range su.GetStorageLoc() {
 		val := su.evm.StateDB.GetState(su.MainContract.Address, loc)
@@ -22,7 +22,7 @@ func TestGetStorageLoc(t *testing.T) {
 
 func TestABIFuzzing(t *testing.T) {
 	su := &ContractUtils{}
-	su.DeployContracts("/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol")
+	su.DeployContracts("~/Documents/zeroklabs/gopath/src/minievm/erc20contracts/INT.sol")
 	transferFunc, _ := su.MainContract.ABI.Methods["changename"]
 	nameGetter, _ := su.MainContract.ABI.Methods["name"]
 
@@ -53,7 +53,7 @@ func TestABIFuzzing(t *testing.T) {
 
 func TestAddressSliceFuzzing(t *testing.T) {
 	su := &ContractUtils{}
-	path := "/Users/dynm/Documents/zeroklabs/ContractsDB/etherscan/0xc5d105e63711398af9bbff092d4b6769c82f793d.sol"
+	path := "~/Documents/zeroklabs/ContractsDB/etherscan/0xc5d105e63711398af9bbff092d4b6769c82f793d.sol"
 	su.DeployContracts(path)
 	batchTransferFunc, _ := su.MainContract.ABI.Methods["batchTransfer"]
 

@@ -1,10 +1,13 @@
 package detectors
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"minievm/accounts/abi"
 	"minievm/common"
+	"os"
 	"os/exec"
 	"reflect"
 	"runtime"
@@ -39,8 +42,8 @@ func StringInSlice(a string, list []string) bool {
 	return false
 }
 
-func CompileContract(filepath string) (*SolcOutput, error) {
-	cmd := "/Users/dynm/Documents/GithubProjects/solidity/build/solc/solc"
+func CompileContract(solcpath, filepath string) (*SolcOutput, error) {
+	cmd := solcpath
 	solcArgs := []string{"--combined-json=bin,abi"}
 	task := exec.Command(cmd, append(solcArgs, filepath)...)
 	output, err := task.Output()
@@ -203,4 +206,22 @@ func GenerateInputsByABI(abi abi.ABI, function string) (c chan []interface{}, ty
 	}
 	c = cartesian.Iter(d...)
 	return
+}
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+	if bToMb(m.Alloc) > 500 {
+		fmt.Print("Press 'Enter' to continue...")
+		bufio.NewReader(os.Stdin).ReadBytes('\n')
+	}
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

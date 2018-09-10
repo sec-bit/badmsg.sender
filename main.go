@@ -12,9 +12,11 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"runtime"
 	"strings"
 	"sync"
+
+	"net/http"
+	_ "net/http/pprof"
 
 	_ "github.com/lib/pq"
 )
@@ -146,27 +148,26 @@ func main2() {
 }
 
 func main() {
-	contractPath := flag.String("p", "./", "path to file or folder (Works on transformed src only)")
-	logPath := flag.String("lp", "./fuzz_log", "fuzzer log output path")
+	go http.ListenAndServe(":8080", http.DefaultServeMux)
+	contractPath := flag.String("p", "./", "path to file or folder")
+	logPath := flag.String("lp", "./fuzz_log", "fuzzer's log path")
+	solcPath := flag.String("sp", "solc", "solc path")
 	flag.Parse()
 
-	// path := "/Users/dynm/Documents/zeroklabs/gopath/src/minievm/erc20contracts/t_INT.sol"
-	// cf := detectors.NewContractFuzzer(*contractPath, *logPath, false)
-	// cf.FuzzContracts()
-
-	dispatcher(*contractPath, *logPath)
+	dispatcher(*solcPath, *contractPath, *logPath)
 }
 
-func dispatcher(contractpath, logpath string) {
+func dispatcher(solcpath, contractpath, logpath string) {
 	tasks := make(chan *detectors.FuzzInt, 16)
 	var wg sync.WaitGroup
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			for task := range tasks {
+
 				task.FuzzContracts()
 			}
-			wg.Done()
 		}()
 	}
 
@@ -187,28 +188,15 @@ func dispatcher(contractpath, logpath string) {
 
 		for _, f := range files {
 			// bar.Increment()
-			tasks <- detectors.NewContractFuzzer(path.Join(contractpath, f.Name()), logpath, false)
+			log.Printf("Now Fuzzing... %s\n", f.Name())
+			tasks <- detectors.NewContractFuzzer(solcpath, path.Join(contractpath, f.Name()), logpath, false)
 			// runtime.GC()
-			// PrintMemUsage()
+			// common.PrintMemUsage()
 		}
 	case mode.IsRegular():
-		tasks <- detectors.NewContractFuzzer(contractpath, logpath, true)
+		tasks <- detectors.NewContractFuzzer(solcpath, contractpath, logpath, true)
 	}
 
 	wg.Wait()
 	close(tasks)
-}
-
-func PrintMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
-	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
-}
-
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
 }

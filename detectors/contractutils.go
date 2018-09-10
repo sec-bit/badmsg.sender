@@ -62,16 +62,16 @@ func NULLCallback(args []interface{}) {
 }
 
 //NewContract create a new contract and deploy to storage
-func NewContract(path string) *ContractUtils {
+func NewContract(solcpath, path string) *ContractUtils {
 	su := &ContractUtils{}
-	su.DeployContracts(path)
+	su.DeployContracts(solcpath, path)
 	su.SetSkippedVars([]string{})
 	return su
 }
 
 //DeployContracts deploys all contracts from source
-func (cu *ContractUtils) DeployContracts(path string) {
-	solcout, err := CompileContract(path)
+func (cu *ContractUtils) DeployContracts(solcpath, path string) {
+	solcout, err := CompileContract(solcpath, path)
 	if err != nil {
 		log.Print("Compile Contract err...", err, path)
 	}
@@ -95,7 +95,7 @@ func (cu *ContractUtils) DeployContracts(path string) {
 		Difficulty:  big.NewInt(100),
 	}
 
-	cu.evm = vm.NewEVM(*cu.context, cu.state, params.MainnetChainConfig, vm.Config{EnableJit: false, ForceJit: false, Debug: false})
+	cu.evm = vm.NewEVM(*cu.context, cu.state, params.MainnetChainConfig, vm.Config{EnableJit: false, ForceJit: false, Debug: false, NoRecursion: true})
 
 	methodsandeventscount := 0
 	cu.Contracts = make(map[string]SimpleContract)
